@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT History Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #ff69b4, #8a2be2);
+            --bg-gradient: linear-gradient(135deg, #ffe6f2, #e6e6ff);
+            --card-bg: #ffffff;
+            --purple-1: #f8e6ff;
+            --purple-2: #e6b3ff;
+            --purple-3: #cc66ff;
+            --purple-4: #b31aff;
+            --purple-5: #8a2be2;
+            --row-alt: #fdf6ff;
+            --highlight-color: #ffc6e6;
+            --text-color: #4a154b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1, h2, h3 {
+            background: var(--primary-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 600;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+        }
+
+        .upload-section {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(138, 43, 226, 0.1);
+            text-align: center;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+            border: 2px dashed #e6b3ff;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .upload-section.drag-over {
+            border-color: #8a2be2;
+            background: var(--purple-1);
+        }
+
+        .upload-section label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-gradient);
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .upload-section label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(138, 43, 226, 0.2);
+        }
+
+        .upload-section p {
+            margin: 0.75rem 0;
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .contributions-calendar {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(138, 43, 226, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .calendar-year {
+            margin-bottom: 2rem;
+        }
+
+        .calendar-year:last-child {
+            margin-bottom: 0;
+        }
+
+        .year-header {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(53, 1fr);
+            gap: 3px;
+            margin-top: 0.5rem;
+            position: relative;
+        }
+
+        .calendar-day {
+            width: 100%;
+            padding-bottom: 100%;
+            background-color: var(--purple-1);
+            border-radius: 2px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .calendar-day:hover {
+            transform: scale(1.2);
+        }
+
+        .calendar-day[data-level="1"] { background-color: var(--purple-2); }
+        .calendar-day[data-level="2"] { background-color: var(--purple-3); }
+        .calendar-day[data-level="3"] { background-color: var(--purple-4); }
+        .calendar-day[data-level="4"] { background-color: var(--purple-5); }
+
+        .calendar-day::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(74, 21, 75, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .calendar-day:hover::before {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .stats-section {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(138, 43, 226, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--purple-1);
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .chat-history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2rem;
+            background: var(--card-bg);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(138, 43, 226, 0.1);
+            font-size: 0.9rem;
+        }
+
+        .chat-history-table th,
+        .chat-history-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--purple-1);
+        }
+
+        .chat-history-table th {
+            background: var(--primary-gradient);
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .chat-history-table tbody tr:nth-child(even) {
+            background-color: var(--row-alt);
+        }
+
+        .chat-history-table tbody tr:hover {
+            background: var(--purple-1);
+        }
+
+        .chat-history-table tbody tr.highlighted {
+            background-color: var(--highlight-color);
+            animation: highlight-fade 2s ease-out;
+        }
+
+        @keyframes highlight-fade {
+            0% { background-color: var(--highlight-color); }
+            100% { background-color: inherit; }
+        }
+
+        .response-text {
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .loading {
+            display: none;
+            margin: 1rem 0;
+            color: var(--purple-5);
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .error-message {
+            color: #ff1a75;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #fff;
+            border-radius: 8px;
+            border-left: 4px solid #ff1a75;
+            display: none;
+            font-size: 0.9rem;
+        }
+
+        #plotlyChart {
+            width: 100%;
+            height: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ChatGPT History Viewer</h1>
+            <p>Upload your ChatGPT history JSON file to visualize your chat patterns</p>
+        </header>
+
+        <section class="upload-section" id="dropZone">
+            <label for="fileInput">
+                Choose JSON File
+                <input type="file" id="fileInput" accept=".json">
+            </label>
+            <p>or drag and drop your file here</p>
+            <div class="loading" id="loading">Processing...</div>
+            <div class="error-message" id="errorMessage"></div>
+        </section>
+
+        <section class="contributions-calendar">
+            <h2>Activity Calendar</h2>
+            <div id="calendarContainer"></div>
+        </section>
+
+        <section class="stats-section">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Messages</h3>
+                    <div id="totalMessages">-</div>
+                </div>
+            </div>
+            <div id="plotlyChart"></div>
+        </section>
+
+        <section class="chat-history-table-container">
+            <table class="chat-history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Title</th>
+                        <th>Messages</th>
+                        <th>Last Response</th>
+                    </tr>
+                </thead>
+                <tbody id="chatHistoryTableBody">
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            const loading = document.getElementById('loading');
+            const errorMessage = document.getElementById('errorMessage');
+            const totalMessages = document.getElementById('totalMessages');
+            const chatHistoryTableBody = document.getElementById('chatHistoryTableBody');
+            const plotlyChart = document.getElementById('plotlyChart');
+            const calendarContainer = document.getElementById('calendarContainer');
+
+            // Store conversations data globally
+            let conversationsData = [];
+
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+
+            // Highlight drop zone when dragging over it
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, unhighlight, false);
+            });
+
+            // Handle dropped files
+            dropZone.addEventListener('drop', handleDrop, false);
+            fileInput.addEventListener('change', handleFiles, false);
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            function highlight(e) {
+                dropZone.classList.add('drag-over');
+            }
+
+            function unhighlight(e) {
+                dropZone.classList.remove('drag-over');
+            }
+
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles({ target: { files: files } });
+            }
+
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+                loading.classList.remove('active');
+            }
+
+            function clearError() {
+                errorMessage.style.display = 'none';
+                errorMessage.textContent = '';
+            }
+
+            function highlightTableRows(date) {
+                // Remove previous highlights
+                const rows = chatHistoryTableBody.getElementsByTagName('tr');
+                Array.from(rows).forEach(row => row.classList.remove('highlighted'));
+
+                // Convert selected date to start and end of day timestamps
+                const selectedDate = new Date(date);
+                const startOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate()).getTime() / 1000;
+                const endOfDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59).getTime() / 1000;
+
+                let firstMatch = null;
+
+                // Find and highlight matching rows
+                conversationsData.forEach((conv, index) => {
+                    if (conv.create_time >= startOfDay && conv.create_time <= endOfDay) {
+                        rows[index].classList.add('highlighted');
+                        if (firstMatch === null) {
+                            firstMatch = rows[index];
+                        }
+                    }
+                });
+
+                // Scroll the first matching row into view
+                if (firstMatch) {
+                    firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+
+            function createCalendar(dailyStats) {
+                // Clear previous calendar
+                calendarContainer.innerHTML = '';
+
+                // Group data by year
+                const yearlyData = {};
+                Object.entries(dailyStats).forEach(([date, count]) => {
+                    const year = date.split('-')[0];
+                    if (!yearlyData[year]) {
+                        yearlyData[year] = {};
+                    }
+                    yearlyData[year][date] = count;
+                });
+
+                // Create calendar for each year
+                Object.entries(yearlyData)
+                    .sort(([yearA], [yearB]) => yearB.localeCompare(yearA))
+                    .forEach(([year, data]) => {
+                        const yearSection = document.createElement('div');
+                        yearSection.className = 'calendar-year';
+
+                        const yearHeader = document.createElement('h3');
+                        yearHeader.className = 'year-header';
+                        yearHeader.textContent = year;
+                        yearSection.appendChild(yearHeader);
+
+                        const grid = document.createElement('div');
+                        grid.className = 'calendar-grid';
+
+                        // Calculate max count for color intensity
+                        const maxCount = Math.max(...Object.values(data));
+
+                        // Create cells for each day
+                        const startDate = new Date(`${year}-01-01`);
+                        const endDate = new Date(`${year}-12-31`);
+
+                        for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+                            const dateStr = date.toISOString().split('T')[0];
+                            const count = data[dateStr] || 0;
+
+                            const cell = document.createElement('div');
+                            cell.className = 'calendar-day';
+
+                            // Calculate intensity level (0-4)
+                            const level = count ? Math.ceil((count / maxCount) * 4) : 0;
+                            if (level > 0) {
+                                cell.setAttribute('data-level', level);
+                            }
+
+                            // Add tooltip
+                            cell.setAttribute('data-tooltip', `${dateStr}: ${count} messages`);
+
+                            // Add click handler
+                            if (count > 0) {
+                                cell.addEventListener('click', () => highlightTableRows(dateStr));
+                            }
+
+                            grid.appendChild(cell);
+                        }
+
+                        yearSection.appendChild(grid);
+                        calendarContainer.appendChild(yearSection);
+                    });
+            }
+
+            function handleFiles(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                // Clear previous error messages
+                clearError();
+
+                // Show loading indicator
+                loading.classList.add('active');
+
+                // Create FormData and append file
+                const formData = new FormData();
+                formData.append('file', file);
+
+                // Send file to server
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.error || 'Upload failed');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Store conversations data globally
+                    conversationsData = data.conversations;
+
+                    // Update total messages
+                    totalMessages.textContent = data.total_messages;
+
+                    // Create activity calendar
+                    createCalendar(data.daily_stats);
+
+                    // Update chat history table
+                    chatHistoryTableBody.innerHTML = '';
+                    data.conversations.forEach(conv => {
+                        const row = document.createElement('tr');
+                        const date = new Date(conv.create_time * 1000).toLocaleDateString();
+                        row.innerHTML = `
+                            <td>${date}</td>
+                            <td>${conv.title}</td>
+                            <td>${conv.message_count}</td>
+                            <td class="response-text">${conv.last_response || '-'}</td>
+                        `;
+                        chatHistoryTableBody.appendChild(row);
+                    });
+
+                    // Update Plotly chart
+                    if (data.usage_graph) {
+                        const graphData = JSON.parse(data.usage_graph);
+                        Plotly.newPlot('plotlyChart', graphData.data, graphData.layout);
+                    }
+
+                    // Hide loading indicator
+                    loading.classList.remove('active');
+                })
+                .catch(error => {
+                    showError(error.message);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
