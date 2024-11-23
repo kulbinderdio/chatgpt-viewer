@@ -1,6 +1,11 @@
 # ChatGPT History Viewer
 
+**This was written entirely by AI. Used Cline with Sonnet 3.5.
+Other than a few simple app usage tests no testing has been undertaken, that includes the Docker files**
+
 A web application for visualizing and analyzing your ChatGPT conversation history. This application allows you to upload your ChatGPT history JSON file and view insights about your usage patterns, including daily activity and conversation statistics.
+
+![image](https://github.com/user-attachments/assets/4b90edf0-08b0-4574-b3d5-6f774b066005)
 
 ## Features
 
