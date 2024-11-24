@@ -12,10 +12,7 @@ import traceback
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__,
-            static_url_path='',
-            static_folder='static',
-            template_folder='templates')
+app = Flask(__name__)
 
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -162,7 +159,8 @@ def process_chat_history(data):
                     'title': conversation.get('title', 'Untitled'),
                     'create_time': create_time,
                     'message_count': msg_count,
-                    'last_response': get_last_response(conversation)
+                    'last_response': get_last_response(conversation),
+                    'mapping': conversation.get('mapping', {})  # Include the full conversation mapping
                 }
                 conversations_data.append(conv_data)
 
@@ -270,5 +268,4 @@ def favicon():
 
 if __name__ == '__main__':
     logger.info("Starting Flask application...")
-    app.run(host="0.0.0.0",debug=True)
-    
+    app.run(host="0.0.0.0", port=5001, debug=True)
